@@ -3,10 +3,12 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ArrowRight, Clock, MapPin, Sparkles } from "lucide-react"
-import { opportunities } from "@/lib/mock-data"
+import { getOpportunities } from "@/app/actions/opportunities"
 import Link from "next/link"
 
-export function OpportunityCard() {
+export async function OpportunityCard() {
+  const opportunities = await getOpportunities()
+
   return (
     <Card className="border-border">
       <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -63,3 +65,4 @@ export function OpportunityCard() {
     </Card>
   )
 }
+

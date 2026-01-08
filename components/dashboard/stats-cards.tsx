@@ -1,43 +1,53 @@
 import { Card, CardContent } from "@/components/ui/card"
 import { Users, Eye, Search, FolderKanban } from "lucide-react"
-import { currentUser } from "@/lib/mock-data"
 
-const stats = [
-  {
-    title: "Connections",
-    value: currentUser.connections,
-    change: "+12%",
-    icon: Users,
-    color: "text-primary",
-    bgColor: "bg-primary/10",
-  },
-  {
-    title: "Profile Views",
-    value: currentUser.profileViews,
-    change: "+8%",
-    icon: Eye,
-    color: "text-secondary",
-    bgColor: "bg-secondary/10",
-  },
-  {
-    title: "Search Appearances",
-    value: currentUser.searchAppearances,
-    change: "+15%",
-    icon: Search,
-    color: "text-amber-500",
-    bgColor: "bg-amber-500/10",
-  },
-  {
-    title: "Projects",
-    value: currentUser.completedProjects,
-    change: "+2 new",
-    icon: FolderKanban,
-    color: "text-rose-500",
-    bgColor: "bg-rose-500/10",
-  },
-]
+interface User {
+  connections: number
+  profileViews: number
+  searchAppearances: number
+  completedProjects: number
+}
 
-export function StatsCards() {
+interface StatsCardsProps {
+  user: User
+}
+
+export function StatsCards({ user }: StatsCardsProps) {
+  const stats = [
+    {
+      title: "Connections",
+      value: user.connections,
+      change: "+12%",
+      icon: Users,
+      color: "text-primary",
+      bgColor: "bg-primary/10",
+    },
+    {
+      title: "Profile Views",
+      value: user.profileViews,
+      change: "+8%",
+      icon: Eye,
+      color: "text-secondary",
+      bgColor: "bg-secondary/10",
+    },
+    {
+      title: "Search Appearances",
+      value: user.searchAppearances,
+      change: "+15%",
+      icon: Search,
+      color: "text-amber-500",
+      bgColor: "bg-amber-500/10",
+    },
+    {
+      title: "Projects",
+      value: user.completedProjects,
+      change: "+2 new",
+      icon: FolderKanban,
+      color: "text-rose-500",
+      bgColor: "bg-rose-500/10",
+    },
+  ]
+
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
       {stats.map((stat) => (
@@ -59,3 +69,4 @@ export function StatsCards() {
     </div>
   )
 }
+

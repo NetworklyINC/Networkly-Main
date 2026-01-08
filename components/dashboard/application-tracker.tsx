@@ -2,7 +2,7 @@ import type React from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { ArrowRight, CheckCircle2, Clock, Send, FileCheck } from "lucide-react"
-import { applications } from "@/lib/mock-data"
+import { getApplications } from "@/app/actions/applications"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 
@@ -13,7 +13,9 @@ const statusConfig: Record<string, { color: string; icon: React.ElementType; bgC
   Accepted: { color: "text-emerald-500", icon: FileCheck, bgColor: "bg-emerald-500/10" },
 }
 
-export function ApplicationTracker() {
+export async function ApplicationTracker() {
+  const applications = await getApplications()
+
   return (
     <Card className="border-border">
       <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -51,3 +53,4 @@ export function ApplicationTracker() {
     </Card>
   )
 }
+

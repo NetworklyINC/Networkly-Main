@@ -10,9 +10,20 @@ import { MessagesPanel } from "@/components/network/messages-panel"
 import { NetworkStats } from "@/components/network/network-stats"
 import { networkConnections } from "@/lib/mock-data"
 
+interface Connection {
+  id: string
+  name: string
+  headline: string
+  avatar: string
+  mutualConnections: number
+  matchReason: string
+  status: "connected" | "pending" | "suggested"
+  connectedDate: string | null
+}
+
 export default function NetworkPage() {
   const [searchQuery, setSearchQuery] = useState("")
-  const [connections, setConnections] = useState(networkConnections)
+  const [connections, setConnections] = useState<Connection[]>(networkConnections)
 
   const connectedUsers = connections.filter((c) => c.status === "connected")
   const pendingUsers = connections.filter((c) => c.status === "pending")

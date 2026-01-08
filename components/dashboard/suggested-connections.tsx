@@ -2,9 +2,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { UserPlus, Sparkles } from "lucide-react"
-import { suggestedConnections } from "@/lib/mock-data"
+import { getSuggestedConnections } from "@/app/actions/connections"
 
-export function SuggestedConnections() {
+export async function SuggestedConnections() {
+  const suggestedConnections = await getSuggestedConnections()
+
   return (
     <Card className="border-border">
       <CardHeader className="pb-2">
@@ -35,3 +37,4 @@ export function SuggestedConnections() {
     </Card>
   )
 }
+

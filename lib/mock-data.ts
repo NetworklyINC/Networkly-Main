@@ -477,7 +477,7 @@ export const networkConnections = [
     avatar: "/professional-woman-engineer.png",
     mutualConnections: 12,
     matchReason: "Similar interests in AI/ML and Stanford network",
-    status: "connected",
+    status: "connected" as const,
     connectedDate: "Nov 2025",
   },
   {
@@ -487,7 +487,7 @@ export const networkConnections = [
     avatar: "/professional-man-founder.png",
     mutualConnections: 8,
     matchReason: "Shared interest in healthcare technology",
-    status: "connected",
+    status: "connected" as const,
     connectedDate: "Oct 2025",
   },
   {
@@ -497,7 +497,7 @@ export const networkConnections = [
     avatar: "/professional-woman-pm.jpg",
     mutualConnections: 5,
     matchReason: "Active in Bay Area tech community",
-    status: "pending",
+    status: "pending" as const,
     connectedDate: null,
   },
   {
@@ -507,7 +507,7 @@ export const networkConnections = [
     avatar: "/professional-man-engineer.png",
     mutualConnections: 15,
     matchReason: "Works on ML infrastructure you're interested in",
-    status: "connected",
+    status: "connected" as const,
     connectedDate: "Dec 2025",
   },
   {
@@ -517,7 +517,7 @@ export const networkConnections = [
     avatar: "/professional-woman-data.png",
     mutualConnections: 7,
     matchReason: "Similar research interests in recommendation systems",
-    status: "suggested",
+    status: "suggested" as const,
     connectedDate: null,
   },
   {
@@ -527,7 +527,7 @@ export const networkConnections = [
     avatar: "/professional-man-vp.png",
     mutualConnections: 3,
     matchReason: "Hiring for roles matching your skills",
-    status: "suggested",
+    status: "suggested" as const,
     connectedDate: null,
   },
 ]

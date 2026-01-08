@@ -73,7 +73,15 @@ export function Header() {
             <DropdownMenuItem>Settings</DropdownMenuItem>
             <DropdownMenuItem>Help & Support</DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-destructive">Sign Out</DropdownMenuItem>
+            <DropdownMenuItem
+              className="text-destructive"
+              onClick={() => {
+                // In a real app we would clear auth state here
+                window.location.href = "/login"
+              }}
+            >
+              Sign Out
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
