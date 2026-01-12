@@ -123,7 +123,8 @@ class DiscoveryAgent:
             return {"search_queries": queries}
 
         except Exception as e:
-            print(f"Planner error: {e}")
+            import sys
+            sys.stderr.write(f"Planner error: {e}\n")
             return {"search_queries": []}
 
     async def _searcher_node(self, state: DiscoveryState) -> dict:

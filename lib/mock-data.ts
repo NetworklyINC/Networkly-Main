@@ -7,7 +7,7 @@ export const currentUser = {
   bio: "Passionate about leveraging AI to solve real-world problems. Currently exploring machine learning and its applications in healthcare.",
   location: "San Francisco, CA",
   university: "Stanford University",
-  graduationYear: "2025",
+  graduationYear: 2025,
   skills: ["Python", "Machine Learning", "React", "TensorFlow", "Data Analysis", "Cloud Computing"],
   interests: ["AI/ML", "Healthcare Tech", "Startups", "Open Source"],
   connections: 847,

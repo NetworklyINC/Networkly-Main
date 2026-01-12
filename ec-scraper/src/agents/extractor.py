@@ -12,42 +12,45 @@ from ..db.models import (
     ExtractionResponse,
     ExtractionResult,
     LocationType,
+    OpportunityTiming,
 )
 from ..llm import get_llm_provider, GenerationConfig
 
 
-# Simplified extraction prompt - schema is handled by response_schema
 EXTRACTION_PROMPT = """You are an expert at extracting information about extracurricular opportunities for high school students.
+
+Current date: January 2026
 
 Given the following webpage content, extract structured information about the extracurricular opportunity.
 
-CRITICAL VALIDATION - Set valid=false if ANY of these apply:
-- This is a discussion forum, blog post, or Reddit thread (NOT an opportunity)
-- This is a ranking/list article (e.g., "Best 94 schools for...") - informational, NOT an opportunity
-- This is a news article or press release about opportunities in general
-- This is a generic informational page without a specific program to apply for
-- There is no clear application process, deadline, or way to participate
-- The page is primarily advertising or promotional content
-- This is for graduate students or professionals only (not high school students)
+VALIDATION RULES (Set valid=false only if):
+- This is a ranking article listing MULTIPLE different programs (e.g. "Top 10 Internships")
+- This is a general directory or aggregator page without specific application details for a SINGLE program
+- This is strictly a forum discussion (Reddit/Quora)
+- This is clearly for Graduate/PhD students only (not High School)
 
-EXTRACTION RULES for valid opportunities:
-1. A valid opportunity is a SPECIFIC program that students can apply to or participate in
-2. Examples: internships, scholarships, competitions, summer programs, research programs, fellowships
-3. Only extract information explicitly stated in the content
-4. Use null for fields that cannot be determined
-5. For grade_levels, use integers 9-12 for high school grades
-6. Extract dates in ISO format (YYYY-MM-DD)
-7. Set confidence LOW (0.3-0.5) if the opportunity seems vague or incomplete
-8. Set recheck_days based on opportunity type:
-   - Job postings/Internships with rolling deadlines: 7 days
-   - Events/Competitions with fixed dates: 3 days
-   - Scholarships: 14-30 days
-   - Annual programs: 30 days
+ACCEPTABLE CONTENT (Set valid=true):
+- Specific program landing pages (even if they are marketing/informational)
+- University outreach program pages
+- Scholarship application pages or descriptions
+- Competition homepages
+- "About" pages for specific organizations/clubs
 
-CATEGORY CLASSIFICATION:
-- Choose from: STEM, Arts, Business, Leadership, Community Service, Sports, Humanities, Language, Music, Debate, or Other
-- If "Other" is chosen, you MUST provide suggested_category with a descriptive name like:
-  "Entrepreneurship", "Environmental", "Healthcare", "Technology", "Social Impact", "Media/Journalism", etc.
+EXTRACTION INSTRUCTIONS:
+1. Extract the MAIN opportunity described on the page.
+2. If multiple dates exist, look for the most RECENT/UPCOMING 2026 application deadline.
+3. Check if all dates mentioned are in the PAST (e.g., 2025 dates when current year is 2026). If so, set appears_expired=true.
+4. TIMING CLASSIFICATION:
+   - "one-time": Single event, won't recur (e.g., specific workshop with fixed date)
+   - "annual": Happens every year (e.g., Science Olympiad, annual hackathons, yearly contests)
+   - "recurring": Regular schedule (monthly meetings, quarterly programs)
+   - "rolling": Rolling admissions, no fixed deadline
+   - "ongoing": Always open (e.g., volunteer positions, club membership)
+   - "seasonal": Seasonal pattern (summer programs, winter camps)
+5. For annual/recurring opportunities where appears_expired=true, this likely means the page shows past cycle info but the program will run again next year.
+6. For grade_levels, infer from "High School", "Secondary School", "9th-12th grade" -> [9, 10, 11, 12]
+7. Use "Other" category if it doesn't fit perfectly, but provide a specific suggested_category.
+8. Set confidence based on completeness (0.8+ for full details, ~0.5 if some details missing).
 
 WEBPAGE CONTENT:
 ---
@@ -220,6 +223,37 @@ class ExtractorAgent:
         start_date = self._parse_date(data.get("start_date"))
         end_date = self._parse_date(data.get("end_date"))
 
+        # Parse timing type
+        timing_type_str = data.get("timing_type") or "one-time"
+        try:
+            timing_type = OpportunityTiming(timing_type_str)
+        except ValueError:
+            timing_type = OpportunityTiming.ONE_TIME
+
+        # Determine if expired and calculate next cycle
+        is_expired = False
+        next_cycle_expected = None
+        now = datetime.utcnow()
+
+        if timing_type in [OpportunityTiming.ANNUAL, OpportunityTiming.RECURRING, OpportunityTiming.SEASONAL]:
+            if deadline and deadline < now:
+                is_expired = True
+                next_cycle_expected = deadline.replace(year=deadline.year + 1)
+            elif end_date and end_date < now:
+                is_expired = True
+                next_cycle_expected = end_date.replace(year=end_date.year + 1)
+        elif timing_type == OpportunityTiming.ONE_TIME:
+            if deadline and deadline < now:
+                is_expired = True
+            elif end_date and end_date < now:
+                is_expired = True
+
+        # Allow 30-day grace period for one-time opportunities
+        if is_expired and timing_type == OpportunityTiming.ONE_TIME:
+            grace_cutoff = now.replace(day=now.day - 30)
+            if (deadline and deadline >= grace_cutoff) or (end_date and end_date >= grace_cutoff):
+                is_expired = False
+
         # Safely parse lists
         tags = data.get("tags") or []
         if not isinstance(tags, list):
@@ -255,6 +289,9 @@ class ExtractorAgent:
             application_url=data.get("application_url"),
             extraction_confidence=data.get("confidence", 0.5),
             recheck_days=data.get("recheck_days", 14),
+            timing_type=timing_type,
+            is_expired=is_expired,
+            next_cycle_expected=next_cycle_expected,
         )
 
     def _parse_date(self, date_str: Optional[str]) -> Optional[datetime]:

@@ -79,7 +79,9 @@ export async function GET(req: NextRequest) {
             ...mainEnv,
             ...scraperEnv,
             DATABASE_URL: process.env.DATABASE_URL || mainEnv.DATABASE_URL,
-            GOOGLE_API_KEY: scraperEnv.GOOGLE_API_KEY || process.env.GOOGLE_API_KEY,
+            GROQ_API_KEY: scraperEnv.GROQ_API_KEY || process.env.GROQ_API_KEY || mainEnv.GROQ_API_KEY,
+            GOOGLE_API_KEY: scraperEnv.GOOGLE_API_KEY || process.env.GOOGLE_API_KEY || mainEnv.GOOGLE_API_KEY,
+            API_MODE: "groq",
         },
     });
 

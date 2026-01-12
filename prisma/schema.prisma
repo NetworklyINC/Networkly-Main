@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,122 +7,125 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ============================================================================
-// USER & AUTHENTICATION
-// ============================================================================
-
 model User {
-  id                  String   @id @default(uuid())
-  clerkId             String   @unique // Clerk user ID for authentication
-  email               String   @unique
-  name                String
-  avatar              String?
-  headline            String?
-  bio                 String?
-  location            String?
-  university          String?
-  graduationYear      String?
-  skills              String[] @default([])
-  interests           String[] @default([])
-  connections         Int      @default(0)
-  profileViews        Int      @default(0)
-  searchAppearances   Int      @default(0)
-  completedProjects   Int      @default(0)
+  id                      String                @id @default(uuid())
+  clerkId                 String                @unique
+  email                   String                @unique
+  name                    String
+  avatar                  String?
+  headline                String?
+  bio                     String?
+  location                String?
+  university              String?
+  graduationYear          Int?
+  skills                  String[]              @default([])
+  interests               String[]              @default([])
+  connections             Int                   @default(0)
+  profileViews            Int                   @default(0)
+  searchAppearances       Int                   @default(0)
+  completedProjects       Int                   @default(0)
+  visibility              String                @default("public")
+  isProfileComplete       Boolean               @default(false)
+  linkedinUrl             String?
+  githubUrl               String?
+  portfolioUrl            String?
+  lastViewedAt            DateTime?
+  lastLoginAt             DateTime?
+  lastUpdatedBy           String?
+  profileUpdatedAt        DateTime?
+  createdAt               DateTime              @default(now())
+  updatedAt               DateTime              @updatedAt
+  achievements            Achievement[]
+  analyticsData           AnalyticsData?
+  applications            Application[]
+  receivedConnections     Connection[]          @relation("ConnectionReceiver")
+  sentConnections         Connection[]          @relation("ConnectionRequester")
+  extracurriculars        Extracurricular[]
+  receivedMessages        Message[]             @relation("ReceivedMessages")
+  sentMessages            Message[]             @relation("SentMessages")
+  ownedProjects           Project[]             @relation("ProjectOwner")
+  projects                ProjectCollaborator[]
+  recommendationsGiven    Recommendation[]      @relation("GivenRecommendations")
+  recommendationsReceived Recommendation[]      @relation("ReceivedRecommendations")
+  goals                   UserGoal[]
+  savedOpportunities      UserOpportunity[]
+  socialLinks             SocialLink[]
 
-  // Relations
-  projects            ProjectCollaborator[]
-  ownedProjects       Project[]             @relation("ProjectOwner")
-  applications        Application[]
-  sentMessages        Message[]             @relation("SentMessages")
-  receivedMessages    Message[]             @relation("ReceivedMessages")
-  achievements        Achievement[]
-  extracurriculars    Extracurricular[]
-  sentConnections     Connection[]          @relation("ConnectionRequester")
-  receivedConnections Connection[]          @relation("ConnectionReceiver")
-  savedOpportunities  UserOpportunity[]
-  analyticsData       AnalyticsData?
-  goals               UserGoal[]
-  
-  // Recommendations
-  recommendationsReceived Recommendation[] @relation("ReceivedRecommendations")
-  recommendationsGiven    Recommendation[] @relation("GivenRecommendations")
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  @@index([email])
+  @@index([visibility])
 }
-
-// ============================================================================
-// PROFILE EXTRAS
-// ============================================================================
 
 model Recommendation {
-  id          String   @id @default(uuid())
-  content     String
-  authorId    String
-  receiverId  String
-  author      User     @relation("GivenRecommendations", fields: [authorId], references: [id], onDelete: Cascade)
-  receiver    User     @relation("ReceivedRecommendations", fields: [receiverId], references: [id], onDelete: Cascade)
-  authorName  String   // Store name at time of recommendation
-  authorRole  String   // Store role at time of recommendation
+  id           String   @id @default(uuid())
+  content      String
+  authorId     String
+  receiverId   String
+  authorName   String
+  authorRole   String
   authorAvatar String?
-  date        String   // e.g., "Nov 2025"
-
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  date         String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  author       User     @relation("GivenRecommendations", fields: [authorId], references: [id], onDelete: Cascade)
+  receiver     User     @relation("ReceivedRecommendations", fields: [receiverId], references: [id], onDelete: Cascade)
 }
 
-
-// ============================================================================
-// OPPORTUNITIES
-// ============================================================================
-
-model Opportunity {
-  id                    String   @id @default(uuid())
-  url                   String?  // Source URL for deduplication (optional for legacy data)
-  title                 String
-  company               String   // Organization name
-  location              String
-  type                  String   // Internship, Fellowship, Scholarship, Competition, etc.
-  category              String   @default("Other") // STEM, Arts, Business, etc.
-  deadline              DateTime?
-  postedDate            DateTime @default(now())
-  logo                  String?
-  skills                String[] @default([])
-  description           String
-  salary                String?
-  duration              String?
-  remote                Boolean  @default(false)
-  applicants            Int      @default(0)
-  requirements          String?  // Eligibility requirements
-  sourceUrl             String?  // Where it was discovered
-  extractionConfidence  Float    @default(0.0) // 0.0 - 1.0
-  isActive              Boolean  @default(true) // Auto-archive expired
-  
-  // AI-determined revalidation
-  recheckAt             DateTime? // When to re-crawl and validate this opportunity
-  lastVerified          DateTime? // Last time the URL was verified as active
-
-  // Relations
-  userOpportunities UserOpportunity[]
-
+model SocialLink {
+  id        String   @id @default(uuid())
+  userId    String
+  platform  String
+  url       String
+  isVisible Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, platform])
+  @@index([platform])
+}
+
+model Opportunity {
+  id                   String            @id @default(uuid())
+  title                String
+  company              String
+  location             String
+  type                 String
+  deadline             DateTime?
+  postedDate           DateTime          @default(now())
+  logo                 String?
+  skills               String[]          @default([])
+  description          String
+  salary               String?
+  duration             String?
+  remote               Boolean           @default(false)
+  applicants           Int               @default(0)
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+  category             String            @default("Other")
+  extractionConfidence Float             @default(0.0)
+  isActive             Boolean           @default(true)
+  requirements         String?
+  sourceUrl            String?
+  url                  String?
+  lastVerified         DateTime?
+  recheckAt            DateTime?
+  timingType           String            @default("one-time")
+  isExpired            Boolean           @default(false)
+  nextCycleExpected    DateTime?
+  userOpportunities    UserOpportunity[]
 }
 
 model UserOpportunity {
   id            String      @id @default(uuid())
   userId        String
   opportunityId String
-  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  matchScore    Int         @default(0)
+  matchReasons  Json        @default("[]")
+  status        String      @default("curated")
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
   opportunity   Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
-
-  // User-specific matching data
-  matchScore    Int         @default(0)  // 0-100
-  matchReasons  Json        @default("[]") // Array of strings explaining the match
-  status        String      @default("curated") // curated, saved, applied, dismissed
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, opportunityId])
 }
@@ -133,202 +133,149 @@ model UserOpportunity {
 model UserGoal {
   id        String   @id @default(uuid())
   userId    String
-  goalText  String   // e.g., "Get a summer internship in biotech"
-  roadmap   Json     @default("[]") // AI-generated steps
-  filters   Json?    // AI-suggested opportunity filters
+  goalText  String
+  roadmap   Json     @default("[]")
+  filters   Json?
   isActive  Boolean  @default(true)
-
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-// ============================================================================
-// PROJECTS
-// ============================================================================
-
 model Project {
-  id          String   @id @default(uuid())
-  title       String
-  description String
-  image       String?
-  status      String   @default("Planning") // Planning, In Progress, Completed
-  visibility  String   @default("public")   // public, private
-  likes       Int      @default(0)
-  views       Int      @default(0)
-  comments    Int      @default(0)
-  tags        String[] @default([])
-  progress    Int      @default(0)
-  github      String?
-  demo        String?
-  lookingFor  String[] @default([])
-
-  // Owner relation
-  ownerId String
-  owner   User   @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-
-  // Collaborators relation
+  id            String                @id @default(uuid())
+  title         String
+  description   String
+  image         String?
+  status        String                @default("Planning")
+  visibility    String                @default("public")
+  likes         Int                   @default(0)
+  views         Int                   @default(0)
+  comments      Int                   @default(0)
+  tags          String[]              @default([])
+  progress      Int                   @default(0)
+  github        String?
+  demo          String?
+  lookingFor    String[]              @default([])
+  ownerId       String
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+  owner         User                  @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   collaborators ProjectCollaborator[]
   updates       ProjectUpdate[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 }
 
 model ProjectCollaborator {
-  id        String @id @default(uuid())
+  id        String  @id @default(uuid())
   projectId String
   userId    String
-  role      String @default("Collaborator")
-
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      String  @default("Collaborator")
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([projectId, userId])
 }
 
 model ProjectUpdate {
-  id        String @id @default(uuid())
+  id        String   @id @default(uuid())
   projectId String
-  type      String // milestone, update, feature
+  type      String
   content   String
-
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-
   createdAt DateTime @default(now())
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
 
-// ============================================================================
-// NETWORKING & MESSAGES
-// ============================================================================
-
 model Connection {
-  id          String @id @default(uuid())
-  requesterId String
-  receiverId  String
-  status      String @default("pending") // pending, connected, suggested
-
-  requester User @relation("ConnectionRequester", fields: [requesterId], references: [id], onDelete: Cascade)
-  receiver  User @relation("ConnectionReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
-
-  mutualConnections Int     @default(0)
+  id                String    @id @default(uuid())
+  requesterId       String
+  receiverId        String
+  status            String    @default("pending")
+  mutualConnections Int       @default(0)
   matchReason       String?
   connectedDate     DateTime?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  receiver          User      @relation("ConnectionReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+  requester         User      @relation("ConnectionRequester", fields: [requesterId], references: [id], onDelete: Cascade)
 
   @@unique([requesterId, receiverId])
 }
 
 model Message {
-  id         String  @id @default(uuid())
+  id         String   @id @default(uuid())
   content    String
   senderId   String
   receiverId String
   preview    String?
-  unread     Boolean @default(true)
-
-  sender   User @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
-  receiver User @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
+  unread     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  receiver   User     @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+  sender     User     @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
 }
 
-// ============================================================================
-// APPLICATIONS
-// ============================================================================
-
 model Application {
-  id          String  @id @default(uuid())
+  id          String   @id @default(uuid())
   company     String
   position    String
-  status      String  @default("Applied") // Applied, Under Review, Interview Scheduled, etc.
+  status      String   @default("Applied")
   appliedDate DateTime @default(now())
   nextStep    String?
   userId      String
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
-
-// ============================================================================
-// EVENTS
-// ============================================================================
 
 model Event {
   id        String   @id @default(uuid())
   title     String
-  date      String   // e.g., "Feb 15-17, 2026"
+  date      String
   location  String
-  type      String   // Conference, Hackathon
+  type      String
   attendees Int      @default(0)
   image     String?
-
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
-// ============================================================================
-// USER PROFILE EXTRAS
-// ============================================================================
-
 model Achievement {
-  id     String @id @default(uuid())
-  title  String
-  date   String
-  icon   String // trophy, award, star
-  userId String
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
+  id        String   @id @default(uuid())
+  title     String
+  date      String
+  icon      String
+  userId    String
   createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Extracurricular {
-  id           String  @id @default(uuid())
+  id           String   @id @default(uuid())
   title        String
   organization String
-  type         String  // Research, Leadership, Technical
+  type         String
   startDate    String
   endDate      String
   description  String?
   logo         String?
   userId       String
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
-
-// ============================================================================
-// ANALYTICS
-// ============================================================================
 
 model AnalyticsData {
-  id               String @id @default(uuid())
-  userId           String @unique
-  profileViews     Json   @default("[]") // Array of { date, views }
-  networkGrowth    Json   @default("[]") // Array of { month, connections }
-  skillEndorsements Json  @default("[]") // Array of { skill, count }
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  updatedAt DateTime @updatedAt
+  id                String   @id @default(uuid())
+  userId            String   @unique
+  profileViews      Json     @default("[]")
+  networkGrowth     Json     @default("[]")
+  skillEndorsements Json     @default("[]")
+  updatedAt         DateTime @updatedAt
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-// ============================================================================
-// CHAT HISTORY (Optional - for AI Assistant)
-// ============================================================================
-
 model ChatLog {
-  id      String @id @default(uuid())
-  userId  String
-  message String
-  role    String // user, assistant
-
+  id        String   @id @default(uuid())
+  userId    String
+  message   String
+  role      String
   createdAt DateTime @default(now())
 }

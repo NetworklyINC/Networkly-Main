@@ -1,12 +1,13 @@
 """PostgreSQL sync for Networkly integration."""
 
 import os
+import sys
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import asyncpg
 
-from ..db.models import ECCard
+from ..db.models import ECCard, OpportunityTiming
 
 
 class PostgresSync:
@@ -80,7 +81,12 @@ class PostgresSync:
                         requirements = $10,
                         "sourceUrl" = $11,
                         "extractionConfidence" = $12,
-                        "updatedAt" = $13
+                        "updatedAt" = $13,
+                        "timingType" = $14,
+                        "isExpired" = $15,
+                        "nextCycleExpected" = $16,
+                        "recheckAt" = $17,
+                        "lastVerified" = $18
                     WHERE id = $1
                 ''',
                     existing['id'],
@@ -96,12 +102,16 @@ class PostgresSync:
                     ec_card.source_url,
                     ec_card.extraction_confidence,
                     datetime.utcnow(),
+                    ec_card.timing_type.value,
+                    ec_card.is_expired,
+                    ec_card.next_cycle_expected,
+                    datetime.utcnow() + timedelta(days=ec_card.recheck_days),
+                    datetime.utcnow(),
                 )
                 return existing['id']
             else:
                 # Insert new record
                 import uuid
-                from datetime import timedelta
                 new_id = str(uuid.uuid4())
                 
                 # Calculate recheckAt based on AI-determined recheck_days
@@ -113,9 +123,10 @@ class PostgresSync:
                         id, url, title, company, location, type, category,
                         deadline, "postedDate", skills, description, requirements,
                         "sourceUrl", "extractionConfidence", "isActive", remote,
-                        applicants, "recheckAt", "lastVerified", "createdAt", "updatedAt"
+                        applicants, "recheckAt", "lastVerified", "createdAt", "updatedAt",
+                        "timingType", "isExpired", "nextCycleExpected"
                     ) VALUES (
-                        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21
+                        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24
                     )
                 ''',
                     new_id,
@@ -139,6 +150,9 @@ class PostgresSync:
                     datetime.utcnow(),  # lastVerified
                     datetime.utcnow(),
                     datetime.utcnow(),
+                    ec_card.timing_type.value,
+                    ec_card.is_expired,
+                    ec_card.next_cycle_expected,
                 )
                 return new_id
     
@@ -157,14 +171,17 @@ class PostgresSync:
             try:
                 opp_id = await self.upsert_opportunity(card)
                 ids.append(opp_id)
-                print(f"✓ Synced: {card.title}")
+                sys.stderr.write(f"✓ Synced: {card.title}\n")
             except Exception as e:
-                print(f"✗ Failed to sync {card.title}: {e}")
+                sys.stderr.write(f"✗ Failed to sync {card.title}: {e}\n")
         return ids
     
     async def archive_expired(self) -> int:
         """
         Archive opportunities past their deadline.
+        
+        Only archives one-time opportunities. Annual/recurring/seasonal opportunities
+        are marked with isExpired=true but kept active for recheck.
         
         Returns:
             Number of archived opportunities
@@ -172,10 +189,24 @@ class PostgresSync:
         await self.connect()
         
         async with self._pool.acquire() as conn:
+            # Only archive expired one-time opportunities
             result = await conn.execute('''
                 UPDATE "Opportunity"
                 SET "isActive" = false, "updatedAt" = $1
-                WHERE deadline < $1 AND "isActive" = true
+                WHERE deadline < $1 
+                  AND "isActive" = true
+                  AND ("timingType" = 'one-time' OR "timingType" IS NULL)
+            ''', datetime.utcnow())
+            
+            # Mark recurring/annual opportunities as expired but keep active for recheck
+            await conn.execute('''
+                UPDATE "Opportunity"
+                SET "isExpired" = true, 
+                    "updatedAt" = $1
+                WHERE deadline < $1 
+                  AND "isActive" = true
+                  AND "timingType" IN ('annual', 'recurring', 'seasonal')
+                  AND "isExpired" = false
             ''', datetime.utcnow())
             
             # Extract count from result

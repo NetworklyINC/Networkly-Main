@@ -8,6 +8,7 @@ import { OpportunityDetailPanel } from "@/components/opportunities/opportunity-d
 import { GoalDashboard } from "@/components/opportunities/goal-dashboard"
 import { SearchWithDiscovery } from "@/components/opportunities/search-with-discovery"
 import { getOpportunities } from "@/app/actions/opportunities"
+import { useHasMounted } from "@/hooks/use-has-mounted"
 
 interface Opportunity {
   id: string
@@ -39,6 +40,7 @@ export default function OpportunitiesPage() {
   const [loading, setLoading] = useState(true)
   const [isSearching, setIsSearching] = useState(false)
   const [isDetailOpen, setIsDetailOpen] = useState(false)
+  const hasMounted = useHasMounted()
 
   useEffect(() => {
     async function fetchOpportunities() {
@@ -108,23 +110,23 @@ export default function OpportunitiesPage() {
   const handleNewOpportunity = (card: { title: string; organization: string; type: string; location?: string }) => {
     // Logic to add new opp
     const newOpp: Opportunity = {
-       id: `temp-${Date.now()}`,
-       title: card.title,
-       company: card.organization,
-       type: card.type,
-       location: card.location || "Remote",
-       matchScore: 0,
-       skills: [],
-       matchReasons: [],
-       deadline: null,
-       postedDate: "Just now",
-       logo: null,
-       description: "Newly discovered opportunity.",
-       salary: null,
-       duration: null,
-       remote: false,
-       applicants: 0,
-       saved: false
+      id: `temp-${Date.now()}`,
+      title: card.title,
+      company: card.organization,
+      type: card.type,
+      location: card.location || "Remote",
+      matchScore: 0,
+      skills: [],
+      matchReasons: [],
+      deadline: null,
+      postedDate: "Just now",
+      logo: null,
+      description: "Newly discovered opportunity.",
+      salary: null,
+      duration: null,
+      remote: false,
+      applicants: 0,
+      saved: false
     }
     setOpportunities(prev => [newOpp, ...prev])
   }
@@ -137,7 +139,7 @@ export default function OpportunitiesPage() {
   return (
     <div className="min-h-screen bg-background pb-10">
       <div className="container mx-auto px-4 lg:px-8 py-6 max-w-[1600px]">
-        
+
         {/* Header */}
         <div className="flex flex-col gap-6 mb-8">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -147,7 +149,7 @@ export default function OpportunitiesPage() {
                 Discover {filteredOpportunities.length} opportunities curated for you
               </p>
             </div>
-            
+
             <div className="flex items-center gap-3 w-full sm:w-auto">
               <SearchWithDiscovery
                 value={searchQuery}
@@ -170,98 +172,110 @@ export default function OpportunitiesPage() {
 
         {/* Main Layout */}
         <div className="flex items-start gap-8 relative">
-          
+
           {/* Main Grid Content */}
           <div className="flex-1 min-w-0">
-             <Tabs defaultValue="all" className="space-y-6">
+            {hasMounted ? (
+              <Tabs defaultValue="all" className="space-y-6">
                 <TabsList className="bg-muted/50 p-1">
-                   <TabsTrigger value="all" className="px-6">All ({filteredOpportunities.length})</TabsTrigger>
-                   <TabsTrigger value="saved" className="px-6">Saved ({opportunities.filter(o => o.saved).length})</TabsTrigger>
-                   <TabsTrigger value="applied" className="px-6">Applied (3)</TabsTrigger>
+                  <TabsTrigger value="all" className="px-6">All ({filteredOpportunities.length})</TabsTrigger>
+                  <TabsTrigger value="saved" className="px-6">Saved ({opportunities.filter(o => o.saved).length})</TabsTrigger>
+                  <TabsTrigger value="applied" className="px-6">Applied (3)</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="all" className="mt-6">
-                   <OpportunityList
-                      opportunities={filteredOpportunities}
-                      onToggleSave={handleToggleSave}
-                      onSelect={handleSelectOpportunity}
-                      selectedId={selectedOpportunity?.id}
-                      searchQuery={searchQuery}
-                      onSearchMore={handleSearchMore}
-                      isSearching={isSearching}
-                      onSearchComplete={handleSearchComplete}
-                      onNewOpportunity={handleNewOpportunity}
-                   />
+                  <OpportunityList
+                    opportunities={filteredOpportunities}
+                    onToggleSave={handleToggleSave}
+                    onSelect={handleSelectOpportunity}
+                    selectedId={selectedOpportunity?.id}
+                    searchQuery={searchQuery}
+                    onSearchMore={handleSearchMore}
+                    isSearching={isSearching}
+                    onSearchComplete={handleSearchComplete}
+                    onNewOpportunity={handleNewOpportunity}
+                  />
                 </TabsContent>
 
                 <TabsContent value="saved" className="mt-6">
-                   <OpportunityList
-                      opportunities={opportunities.filter(o => o.saved)}
-                      onToggleSave={handleToggleSave}
-                      onSelect={handleSelectOpportunity}
-                      selectedId={selectedOpportunity?.id}
-                   />
+                  <OpportunityList
+                    opportunities={opportunities.filter(o => o.saved)}
+                    onToggleSave={handleToggleSave}
+                    onSelect={handleSelectOpportunity}
+                    selectedId={selectedOpportunity?.id}
+                  />
                 </TabsContent>
-                
+
                 <TabsContent value="applied" className="mt-6">
-                   {/* Placeholder for applied */}
-                   <div className="text-center py-20 text-muted-foreground">
-                      No applications yet. Start applying!
-                   </div>
+                  {/* Placeholder for applied */}
+                  <div className="text-center py-20 text-muted-foreground">
+                    No applications yet. Start applying!
+                  </div>
                 </TabsContent>
-             </Tabs>
+              </Tabs>
+            ) : (
+              /* Skeleton or Loader to prevent layout shift */
+              <div className="space-y-6">
+                <div className="h-10 w-full max-w-md bg-muted animate-pulse rounded-lg" />
+                <div className="space-y-4">
+                  {[1, 2, 3].map(i => (
+                    <div key={i} className="h-40 w-full bg-muted animate-pulse rounded-xl" />
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Right Sidebar (Detail Panel or Dashboard) */}
           <div className="hidden xl:block w-[420px] shrink-0 sticky top-6 space-y-6">
-             {/* If an opportunity is selected, show detail panel */}
-             {selectedOpportunity ? (
-                <div className="border border-border rounded-xl bg-card shadow-sm overflow-hidden animate-in fade-in slide-in-from-right-4 duration-300 max-h-[calc(100vh-6rem)]">
-                   {/* We reuse the panel content here logic or just render the component slightly differently */}
-                   <OpportunityDetailPanel
-                      opportunity={selectedOpportunity}
-                      isOpen={true} // Always open in desktop sidebar mode
-                      onClose={() => setSelectedOpportunity(null)}
-                      onToggleSave={handleToggleSave}
-                      embedded={true}
-                   />
+            {/* If an opportunity is selected, show detail panel */}
+            {selectedOpportunity ? (
+              <div className="border border-border rounded-xl bg-card shadow-sm overflow-hidden animate-in fade-in slide-in-from-right-4 duration-300 max-h-[calc(100vh-6rem)]">
+                {/* We reuse the panel content here logic or just render the component slightly differently */}
+                <OpportunityDetailPanel
+                  opportunity={selectedOpportunity}
+                  isOpen={true} // Always open in desktop sidebar mode
+                  onClose={() => setSelectedOpportunity(null)}
+                  onToggleSave={handleToggleSave}
+                  embedded={true}
+                />
+              </div>
+            ) : (
+              /* Default Dashboard View when no selection */
+              <div className="space-y-6 animate-in fade-in duration-500">
+                <GoalDashboard />
+
+                {/* Stats Widget */}
+                <div className="rounded-xl border border-border bg-card p-5">
+                  <h3 className="font-semibold mb-4">Your Activity</h3>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Applications Sent</span>
+                      <span className="font-bold">12</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Profile Views</span>
+                      <span className="font-bold">48</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Response Rate</span>
+                      <span className="font-bold text-emerald-500">15%</span>
+                    </div>
+                  </div>
                 </div>
-             ) : (
-                /* Default Dashboard View when no selection */
-                <div className="space-y-6 animate-in fade-in duration-500">
-                   <GoalDashboard />
-                   
-                   {/* Stats Widget */}
-                   <div className="rounded-xl border border-border bg-card p-5">
-                      <h3 className="font-semibold mb-4">Your Activity</h3>
-                      <div className="space-y-4">
-                         <div className="flex items-center justify-between">
-                            <span className="text-sm text-muted-foreground">Applications Sent</span>
-                            <span className="font-bold">12</span>
-                         </div>
-                         <div className="flex items-center justify-between">
-                            <span className="text-sm text-muted-foreground">Profile Views</span>
-                            <span className="font-bold">48</span>
-                         </div>
-                         <div className="flex items-center justify-between">
-                            <span className="text-sm text-muted-foreground">Response Rate</span>
-                            <span className="font-bold text-emerald-500">15%</span>
-                         </div>
-                      </div>
-                   </div>
-                </div>
-             )}
+              </div>
+            )}
           </div>
         </div>
 
         {/* Mobile/Tablet Detail Drawer */}
         <div className="xl:hidden">
-           <OpportunityDetailPanel
-              opportunity={selectedOpportunity}
-              isOpen={isDetailOpen}
-              onClose={() => setIsDetailOpen(false)}
-              onToggleSave={handleToggleSave}
-           />
+          <OpportunityDetailPanel
+            opportunity={selectedOpportunity}
+            isOpen={isDetailOpen}
+            onClose={() => setIsDetailOpen(false)}
+            onToggleSave={handleToggleSave}
+          />
         </div>
 
       </div>

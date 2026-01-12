@@ -1,6 +1,7 @@
 """SearXNG search client for opportunity discovery."""
 
 import asyncio
+import sys
 from dataclasses import dataclass
 from typing import List, Optional
 import aiohttp
@@ -22,9 +23,18 @@ class SearchResult:
 class SearXNGClient:
     """Client for querying SearXNG metasearch engine."""
     
-    # Engines to exclude by default (empty = use all available)
-    # DuckDuckGo can cause CAPTCHA issues but provides good results when it works
-    DEFAULT_EXCLUDED_ENGINES: List[str] = []
+    # Working engines that return good results for opportunity searches
+    # Wikipedia: always works, good for program info
+    # Ask: works reliably, general web results
+    # Mojeek: independent search engine, no CAPTCHA issues
+    # Yahoo: works well for most queries
+    DEFAULT_ENGINES: List[str] = ['wikipedia', 'ask', 'mojeek', 'yahoo']
+    
+    # Engines to exclude - only those with consistent issues
+    # duckduckgo: CAPTCHA errors
+    # brave: rate limited (too many requests)
+    # startpage: CAPTCHA issues
+    DEFAULT_EXCLUDED_ENGINES: List[str] = ['duckduckgo', 'brave', 'startpage']
     
     def __init__(self, base_url: Optional[str] = None):
         """
@@ -66,8 +76,11 @@ class SearXNGClient:
         
         if categories:
             params['categories'] = ','.join(categories)
-        if engines:
-            params['engines'] = ','.join(engines)
+        
+        # Use default working engines if none specified
+        engines_to_use = engines if engines else self.DEFAULT_ENGINES
+        if engines_to_use:
+            params['engines'] = ','.join(engines_to_use)
         
         # Build disabled engines string
         excluded = excluded_engines if excluded_engines is not None else self.DEFAULT_EXCLUDED_ENGINES
@@ -81,12 +94,13 @@ class SearXNGClient:
                     params=params,
                 ) as response:
                     if response.status != 200:
-                        print(f"SearXNG error: {response.status}")
+                        sys.stderr.write(f"SearXNG error: {response.status}\n")
                         return []
-                    
+
                     data = await response.json()
                     results = []
-                    
+
+                    # Check for regular results
                     for item in data.get('results', [])[:max_results]:
                         results.append(SearchResult(
                             url=item.get('url', ''),
@@ -95,14 +109,26 @@ class SearXNGClient:
                             engine=item.get('engine', 'unknown'),
                             score=item.get('score', 0.0),
                         ))
-                    
+
+                    # Also check infoboxes (Wikipedia returns these)
+                    for infobox in data.get('infoboxes', []):
+                        urls = infobox.get('urls', [])
+                        for url_info in urls[:3]:  # Get first 3 URLs from infobox
+                            results.append(SearchResult(
+                                url=url_info.get('url', ''),
+                                title=f"{infobox.get('infobox', 'Wikipedia')}: {url_info.get('title', 'Link')}",
+                                snippet=infobox.get('content', ''),
+                                engine=infobox.get('engine', 'wikipedia'),
+                                score=0.9,  # Higher score for infobox results
+                            ))
+
                     return results
                     
         except aiohttp.ClientError as e:
-            print(f"SearXNG connection error: {e}")
+            sys.stderr.write(f"SearXNG connection error: {e}\n")
             return []
         except Exception as e:
-            print(f"SearXNG search error: {e}")
+            sys.stderr.write(f"SearXNG search error: {e}\n")
             return []
     
     async def search_opportunities(
