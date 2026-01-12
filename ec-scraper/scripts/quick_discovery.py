@@ -1,11 +1,12 @@
 """Quick discovery script for on-demand user searches with JSON event streaming.
-
+ 
 Optimized for performance with parallel crawling and extraction.
 """
 import asyncio
 import os
 import sys
 import json
+from datetime import datetime
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -19,6 +20,10 @@ from src.search.searxng_client import get_searxng_client
 from src.agents.extractor import get_extractor
 from src.crawlers.crawl4ai_client import get_crawler
 from src.api.postgres_sync import PostgresSync
+from src.config import get_settings
+from src.embeddings import get_embeddings
+from src.db.vector_db import get_vector_db
+from src.db.models import OpportunityTiming
 
 
 def emit_event(type: str, data: dict):
@@ -66,6 +71,15 @@ async def process_url(url: str, crawler, extractor, sync) -> dict | None:
         if any(skip in title_lower for skip in ['best ', 'top ', 'ranking', 'list of', '94 ', '100 ']):
             return {"error": f"Ranking article: {ec.title}", "url": url}
         
+        # Time-based filtering
+        # Reject expired one-time opportunities (past 30 days grace period)
+        if ec.is_expired and ec.timing_type == OpportunityTiming.ONE_TIME:
+            return {"error": f"Expired one-time opportunity (deadline/end date in the past)", "url": url}
+        
+        # For expired recurring/annual opportunities, set priority recheck
+        if ec.is_expired and ec.timing_type in [OpportunityTiming.ANNUAL, OpportunityTiming.RECURRING, OpportunityTiming.SEASONAL]:
+            ec.recheck_days = 3  # Priority recheck for next cycle
+        
         # Sync to database
         await sync.upsert_opportunity(ec)
         
@@ -97,33 +111,50 @@ async def main(query: str):
         emit_event("error", {"message": "DATABASE_URL not found"})
         return
     
+    # Get settings for Groq mode
+    settings = get_settings()
+
     # Initialize components
     search_client = get_searxng_client()
     crawler = get_crawler()
     extractor = get_extractor()
     sync = PostgresSync(db_url)
     await sync.connect()
+
+    # Initialize embeddings and vector DB (only if enabled - Groq doesn't support embeddings)
+    embeddings = None
+    vector_db = None
+    if settings.use_embeddings:
+        try:
+            embeddings = get_embeddings()
+            vector_db = get_vector_db()
+        except Exception as e:
+            sys.stderr.write(f"⚠ Failed to initialize embeddings: {e}\n")
     
     all_urls = set()
     
-    # Generate targeted search queries
-    emit_event("plan", {"message": "Generating targeted search strategies..."})
-    
-    # Run user's query with opportunity modifiers
+    # Generate targeted high-school specific queries with dynamic years
+    emit_event("plan", {"message": "Generating targeted high school search strategies..."})
+
+    current_year = datetime.now().year
+    next_year = current_year + 1
+    base_query = query.strip()
     search_queries = [
-        f"{query} internship",
-        f"{query} scholarship for students",
-        f"{query} summer program 2025",
-        f"{query} application deadline",
+        f"high school {base_query} summer program {current_year}",
+        f"{base_query} internship for high school students",
+        f"{base_query} research opportunities for high schoolers",
+        f"{base_query} competitions high school {current_year}",
+        f"{base_query} volunteer work for teens",
     ]
     
     # Search phase - run searches in parallel
     async def do_search(search_query: str):
         emit_event("search", {"query": search_query})
         try:
-            return await search_client.search(search_query, max_results=5)
+            # Uses client's default engines (wikipedia, ask, mojeek, yahoo)
+            return await search_client.search(search_query, max_results=10)
         except Exception as e:
-            emit_event("error", {"message": f"Search error: {str(e)}"})
+            sys.stderr.write(f"Search error: {e}\n")
             return []
     
     search_tasks = [do_search(q) for q in search_queries]
@@ -134,7 +165,7 @@ async def main(query: str):
         'reddit.com', 'quora.com', 'forum', 'discussion', 'blog',
         'linkedin.com', 'facebook.com', 'twitter.com', 'x.com',
         'instagram.com', 'tiktok.com', 'indeed.com', 'glassdoor.com',
-        'ziprecruiter.com',
+        'ziprecruiter.com', 'youtube.com', 'pinterest.com'
     ]
     
     for results in search_results:
@@ -146,7 +177,7 @@ async def main(query: str):
                 all_urls.add(result.url)
                 emit_event("found", {"url": result.url, "source": result.title or "Web Result"})
     
-    urls_to_process = list(all_urls)[:10]  # Process up to 10 URLs
+    urls_to_process = list(all_urls)[:10]  # Process up to 10 URLs for faster results
     emit_event("plan", {"message": f"Found {len(all_urls)} sources. Analyzing {len(urls_to_process)} in parallel..."})
     
     # Emit analyzing events for all URLs
@@ -155,10 +186,11 @@ async def main(query: str):
     
     # Process URLs in PARALLEL using crawl_batch for crawling
     # Then extract in parallel with semaphore to limit AI API calls
-    crawl_results = await crawler.crawl_batch(urls_to_process, max_concurrent=4)
+    crawl_results = await crawler.crawl_batch(urls_to_process, max_concurrent=6)
     
     # Filter successful crawls and extract in parallel
-    extraction_semaphore = asyncio.Semaphore(3)  # Limit concurrent AI calls
+    # Groq can handle 5+ concurrent requests on paid tier
+    extraction_semaphore = asyncio.Semaphore(5)
     
     async def extract_and_save(crawl_result) -> dict | None:
         if not crawl_result.success:
@@ -187,14 +219,31 @@ async def main(query: str):
                 if ec.title == "Unknown Opportunity" or ec.organization in ["Unknown", None, ""]:
                     return {"error": "Generic extraction", "url": crawl_result.url}
                 
-                # Skip ranking/list articles
+                # Skip ranking/list articles (common noise)
                 title_lower = ec.title.lower()
-                if any(skip in title_lower for skip in ['best ', 'top ', 'ranking', 'list of', '94 ', '100 ']):
+                if any(skip in title_lower for skip in ['best ', 'top ', 'ranking', 'list of']):
                     return {"error": f"Ranking article: {ec.title}", "url": crawl_result.url}
+                
+                # Time-based filtering
+                # Reject expired one-time opportunities (past 30 days grace period)
+                if ec.is_expired and ec.timing_type == OpportunityTiming.ONE_TIME:
+                    return {"error": f"Expired one-time opportunity (deadline/end date in the past)", "url": crawl_result.url}
+                
+                # For expired recurring/annual opportunities, set priority recheck
+                if ec.is_expired and ec.timing_type in [OpportunityTiming.ANNUAL, OpportunityTiming.RECURRING, OpportunityTiming.SEASONAL]:
+                    ec.recheck_days = 3  # Priority recheck for next cycle
                 
                 # Sync to database
                 await sync.upsert_opportunity(ec)
-                
+
+                # Add to vector DB with embeddings (only if enabled)
+                if embeddings and vector_db and settings.use_embeddings:
+                    try:
+                        emb_vector = embeddings.generate_for_indexing(ec.to_embedding_text())
+                        vector_db.add_ec_with_embedding(ec, emb_vector)
+                    except Exception as emb_err:
+                        pass  # Silent fail for embeddings
+
                 return {
                     "success": True,
                     "url": crawl_result.url,

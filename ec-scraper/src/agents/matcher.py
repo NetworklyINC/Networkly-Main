@@ -1,6 +1,7 @@
 """AI-powered opportunity matching agent."""
 
 import json
+import sys
 from typing import Dict, List, Optional
 from dataclasses import dataclass
 
@@ -120,7 +121,7 @@ class MatchingAgent:
             )
             
         except json.JSONDecodeError as e:
-            print(f"Match response parse error: {e}")
+            sys.stderr.write(f"Match response parse error: {e}\n")
             return MatchResult(
                 opportunity_id=opportunity.get("id", ""),
                 score=50,
@@ -128,7 +129,7 @@ class MatchingAgent:
                 recommendation="Fair Match",
             )
         except Exception as e:
-            print(f"Matching error: {e}")
+            sys.stderr.write(f"Matching error: {e}\n")
             return MatchResult(
                 opportunity_id=opportunity.get("id", ""),
                 score=0,

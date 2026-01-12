@@ -1,0 +1,5 @@
+export { EditAboutDialog } from "./edit-about-dialog"
+export { EditSkillsDialog } from "./edit-skills-dialog"
+export { AddAchievementDialog } from "./add-achievement-dialog"
+export { AddExtracurricularDialog } from "./add-extracurricular-dialog"
+export { ShareProfileDialog } from "./share-profile-dialog"

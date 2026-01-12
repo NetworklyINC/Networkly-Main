@@ -8,6 +8,17 @@ from uuid import uuid4
 from pydantic import BaseModel, Field, HttpUrl
 
 
+class OpportunityTiming(str, Enum):
+    """Timing pattern for opportunities."""
+    
+    ONE_TIME = "one-time"       # Single event, won't recur
+    ANNUAL = "annual"           # Happens every year (e.g., Science Olympiad)
+    RECURRING = "recurring"     # Regular schedule (monthly, quarterly)
+    ROLLING = "rolling"         # Rolling admissions, no fixed deadline
+    ONGOING = "ongoing"         # Always open (e.g., volunteer positions)
+    SEASONAL = "seasonal"       # Seasonal pattern (summer programs)
+
+
 class ECCategory(str, Enum):
     """Categories for extracurricular activities."""
 
@@ -79,6 +90,11 @@ class ECCard(BaseModel):
     end_date: Optional[datetime] = None
     cost: Optional[str] = None
     time_commitment: Optional[str] = None
+    
+    # Timing Classification
+    timing_type: OpportunityTiming = OpportunityTiming.ONE_TIME
+    is_expired: bool = False  # True if deadline/end_date is in the past
+    next_cycle_expected: Optional[datetime] = None  # For annual/recurring opportunities
 
     # Additional Details
     requirements: Optional[str] = None
@@ -161,6 +177,16 @@ class ExtractionResponse(BaseModel):
     deadline: Optional[str] = Field(default=None, description="Application deadline in YYYY-MM-DD format")
     start_date: Optional[str] = Field(default=None, description="Start date in YYYY-MM-DD format")
     end_date: Optional[str] = Field(default=None, description="End date in YYYY-MM-DD format")
+    
+    # Timing Classification
+    timing_type: Optional[str] = Field(
+        default="one-time",
+        description="Timing pattern: 'one-time' (single event), 'annual' (yearly like Science Olympiad), 'recurring' (monthly/quarterly), 'rolling' (rolling admissions), 'ongoing' (always open), 'seasonal' (summer programs)"
+    )
+    appears_expired: Optional[bool] = Field(
+        default=False,
+        description="True if all dates mentioned appear to be in the past (e.g., 2025 deadlines when current year is 2026)"
+    )
     
     # Details
     cost: Optional[str] = Field(default=None, description="Cost (e.g., 'Free', '$500')")

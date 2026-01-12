@@ -2,12 +2,13 @@
 
 import { prisma } from "@/lib/prisma"
 import { auth } from "@clerk/nextjs/server"
+import { cache } from "react"
 
 // ============================================================================
-// GET CURRENT USER
+// GET CURRENT USER (with React cache for deduplication)
 // ============================================================================
 
-export async function getCurrentUser() {
+async function fetchCurrentUser() {
     const { userId } = await auth()
     if (!userId) return null
 
@@ -31,13 +32,16 @@ export async function getCurrentUser() {
         bio: user.bio,
         location: user.location,
         university: user.university,
-        graduationYear: user.graduationYear,
+        graduationYear: user.graduationYear?.toString() || null,
         skills: user.skills,
         interests: user.interests,
         connections: user.connections,
         profileViews: user.profileViews,
         searchAppearances: user.searchAppearances,
         completedProjects: user.completedProjects,
+        linkedinUrl: (user as any).linkedinUrl || null,
+        githubUrl: (user as any).githubUrl || null,
+        portfolioUrl: (user as any).portfolioUrl || null,
         achievements: user.achievements.map((a) => ({
             id: a.id,
             title: a.title,
@@ -56,6 +60,9 @@ export async function getCurrentUser() {
         })),
     }
 }
+
+// Cache the user fetch to deduplicate requests within the same render
+export const getCurrentUser = cache(fetchCurrentUser)
 
 // ============================================================================
 // GET USER ANALYTICS
@@ -97,7 +104,7 @@ export async function updateUserProfile(data: {
     bio?: string
     location?: string
     university?: string
-    graduationYear?: string
+    graduationYear?: number
     skills?: string[]
     interests?: string[]
 }) {

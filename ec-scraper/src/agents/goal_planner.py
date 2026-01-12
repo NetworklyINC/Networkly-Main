@@ -1,6 +1,7 @@
 """AI-powered goal planning agent for career roadmaps."""
 
 import json
+import sys
 from typing import Dict, List, Optional
 from dataclasses import dataclass
 
@@ -139,7 +140,7 @@ class GoalPlannerAgent:
             )
             
         except json.JSONDecodeError as e:
-            print(f"Goal plan parse error: {e}")
+            sys.stderr.write(f"Goal plan parse error: {e}\n")
             return GoalPlan(
                 goal_text=goal_text,
                 summary="Unable to generate plan. Please try again.",
@@ -149,7 +150,7 @@ class GoalPlannerAgent:
                 search_queries=[goal_text],
             )
         except Exception as e:
-            print(f"Goal planning error: {e}")
+            sys.stderr.write(f"Goal planning error: {e}\n")
             return GoalPlan(
                 goal_text=goal_text,
                 summary=f"Error: {str(e)}",

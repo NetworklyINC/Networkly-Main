@@ -6,7 +6,6 @@ from typing import Literal, Optional
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
@@ -19,21 +18,22 @@ class Settings(BaseSettings):
     # API Mode: "gemini" uses Gemini for everything, "groq" uses Groq for LLM
     api_mode: Literal["gemini", "groq"] = "gemini"
 
-    # API Keys
-    GOOGLE_API_KEY: str
+    # API Keys (both optional - use whichever matches api_mode)
+    GOOGLE_API_KEY: Optional[str] = None
     GROQ_API_KEY: Optional[str] = None
 
     # Gemini Model Configuration
     gemini_pro_model: str = "gemini-2.5-pro"
     gemini_flash_model: str = "gemini-2.0-flash-lite"
-    
+
     # Groq Model Configuration (used when api_mode="groq")
     groq_model: str = "llama-3.3-70b-versatile"
     groq_fast_model: str = "llama-3.1-8b-instant"
 
-    # Embedding Configuration (always uses Gemini - embeddings not available on Groq)
+    # Embedding Configuration (uses Gemini - disabled by default to avoid rate limits)
     embedding_model: str = "gemini-embedding-001"
     embedding_dimension: int = 768  # 768 for performance, 3072 for max quality
+    use_embeddings: bool = False  # Disabled by default - Gemini embeddings hit rate limits
 
     # Database Paths
     sqlite_db_path: str = "./data/ec_database.db"
@@ -42,6 +42,9 @@ class Settings(BaseSettings):
     # Scraping Configuration
     max_concurrent_scrapes: int = 5
     scrape_timeout_seconds: int = 30
+
+    # Redis Configuration
+    REDIS_URL: Optional[str] = None
 
     @property
     def sqlite_path(self) -> Path:
@@ -56,7 +59,6 @@ class Settings(BaseSettings):
         path = Path(self.chroma_db_path)
         path.mkdir(parents=True, exist_ok=True)
         return path
-
 
 @lru_cache
 def get_settings() -> Settings:
